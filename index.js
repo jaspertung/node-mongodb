@@ -1,5 +1,6 @@
 const MongoClient = require('mongodb').MongoClient
 const assert = require('assert').strict
+const dboper = require('./operations')
 
 const url = 'mongodb://localhost:27017/' //port number
 const dbname = 'nucampsite' //name of database we want to connect to
@@ -17,23 +18,32 @@ MongoClient.connect(url, { useUnifiedTopology: true }, (err, client) => { //conn
     db.dropCollection('campsites', (err, result) => {
         assert.strictEqual(err, null)
         console.log('Dropped Collection', result)
-    })
     
-    //recreate campsites collection
-    const collection = db.collection('campsites')
-    
-    //insert document into collection
-    collection.insertOne({name: "Breadcrumb Trail Campground", description: "Test"},
-    (err, result) => {
-        assert.strictEqual(err, null)
-        console.log('Insert Document:', results.ops) // .ops short for operations, can contain different values depending on method (ex. contain array from document)
-       
-        //print documents in collection
-        collection.find().toArray((err, docs) => { //convert documents to array of objects so can console.log
-            assert.strictEqual(err, null)
-            console.log('Found Documents:', docs)
+        //recreate campsites collection
+        //const collection = db.collection('campsites') ----now accessing collection through db operations module
+        
+        //insert document into collection
+        dboper.insertDocument(db, {name: "Breadcrumb Trail Campground", description: "Test"}, 'campsites', result => {
+            console.log('Insert Document:', result.ops) // .ops short for operations, can contain different values depending on method (ex. contain array from document)
+            
+            dboper.findDocuments(db, 'campsites', docs => {//still inside callback function for .insertDocument, so not called until insertDocument function is finished
+                //docs param contains found documents
+                console.log('Found Documents:', docs)
+                
+                dboper.updateDocument(db, { name: "Breadcrumb Trail Campground" }, { description: "Updated Test Description"}, 'campsites', result => {// 2)name arg acts as filter, module looks for field that matches name then will know which document (only 1) to update, 3) arg is info to update -> update description field, 4) collection name 5) inline callback function
+                    console.log('Updated Document Count:', result.result.nModified)
 
-            client.close() //close documentation to server
-        }) 
+                    dboper.findDocuments(db, 'campsites', docs => {
+                        console.log('Found Documents:', docs)
+
+                        dboper.removeDocument(db, { name: "Breadcrumb Trail Campground" }, 'campsites', result => {
+                            console.log('Deleted Document Count:', result.deletedCount)
+
+                            client.close() //close documentation to server
+                        })
+                    }) 
+                })    
+            })
+        })
     })
 }) 
